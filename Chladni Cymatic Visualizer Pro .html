@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chladni Cymatic Visualizer Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+        }
+        .control-panel-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background-color: white;
+        }
+        .control-panel-section h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #1f2937;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+        label, .label-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        input[type="number"], input[type="text"], select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.2s, opacity 0.2s, color 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #4338ca;
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #d1d5db;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        .btn-toggle.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        #visualizationArea {
+            width: 100%;
+            height: 100%;
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: grab;
+        }
+        #visualizationArea:active {
+            cursor: grabbing;
+        }
+        .info-section {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+        }
+        /* Tooltip styles */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: max-content;
+            max-width: 200px;
+            background-color: #374151;
+            color: #fff;
+            text-align: center;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.75rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        input:disabled, select:disabled, button:disabled, button.disabled {
+            background-color: #f3f4f6 !important;
+            cursor: not-allowed !important;
+            opacity: 0.7 !important;
+        }
+        /* Modal Base Styles */
+        .modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-content {
+             transform: scale(0.95);
+             transition: transform 0.3s ease-in-out;
+        }
+        .modal:not(.hidden) .modal-content {
+            transform: scale(1);
+        }
+
+        /* Gallery Styles */
+        .gallery-item {
+            border: 2px solid transparent;
+            transition: all 0.2s ease-in-out;
+        }
+        .gallery-item:hover {
+            border-color: #4f46e5;
+            transform: scale(1.05);
+        }
+        .gallery-item canvas {
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        /* Lock Button Styles */
+        .lock-btn {
+            background: none;
+            border: none;
+            padding: 0.25rem;
+            border-radius: 9999px;
+            color: #9ca3af; /* gray-400 */
+        }
+        .lock-btn:hover {
+            color: #4b5563; /* gray-600 */
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        .lock-btn.locked {
+            color: #4f46e5; /* indigo-600 */
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+    <!-- Welcome Modal -->
+    <div id="welcomeModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+        <div class="modal-content bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full">
+            <h2 class="text-2xl font-bold text-indigo-600 mb-4">Welcome to the Chladni Visualizer!</h2>
+            <div class="space-y-4 text-gray-700">
+                <p>This is an interactive tool to explore the fascinating world of cymatics—the study of visible sound.</p>
+                <ul class="list-disc list-inside space-y-2 pl-2">
+                    <li>Use the <b class="font-semibold">left panel</b> to control the frequency, plate shape, and other properties.</li>
+                    <li><b class="font-semibold">Click and drag</b> the visualization on the right to rotate, zoom, and pan the plate.</li>
+                    <li>Try the <b class="font-semibold">"Frequency Sweep"</b> feature to see how patterns smoothly transform.</li>
+                </ul>
+                <p>Experiment and discover the beautiful physics of sound!</p>
+            </div>
+            <div class="mt-6 text-right">
+                <button id="closeWelcomeBtn" class="btn-primary">Get Started</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gallery Modal -->
+    <div id="galleryModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+        <div class="modal-content bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full max-h-[90vh] flex flex-col">
+             <div class="flex justify-between items-center border-b border-gray-200 pb-3 mb-4">
+                <h2 class="text-2xl font-bold text-indigo-600">Pattern Gallery</h2>
+                <button id="closeGalleryBtn" class="p-2 rounded-full hover:bg-gray-200" aria-label="Close Gallery">
+                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div id="galleryGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-y-auto p-2">
+                <!-- Gallery items will be injected here -->
+            </div>
+        </div>
+    </div>
+
+
+    <div class="container mx-auto p-4 min-h-screen flex flex-col">
+        <header class="mb-6 text-center">
+            <h1 class="text-4xl font-bold text-indigo-600">Chladni Cymatic Visualizer Pro</h1>
+            <p class="text-lg text-gray-600">Explore the beauty of sound and vibration.</p>
+        </header>
+
+        <main class="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <aside class="lg:col-span-1 space-y-6 h-full overflow-y-auto" style="max-height: calc(100vh - 200px);">
+                <section class="control-panel-section">
+                    <h3>Frequency</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="manualFrequency" class="sr-only">Manual Input (Hz)</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="manualFrequency" name="manualFrequency" value="440" min="1" max="20000" step="0.1" class="flex-grow freq-control-element" aria-label="Manual Frequency Input">
+                                <div class="tooltip">
+                                    <button id="playSoundBtn" class="btn-secondary p-2" aria-label="Play or Stop Sound">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /></svg>
+                                    </button>
+                                    <span class="tooltiptext">Play/Stop Sound</span>
+                                </div>
+                            </div>
+                            <p id="frequencyValidation" class="text-xs text-red-500 mt-1"></p>
+                        </div>
+                        <div class="mt-2">
+                            <label for="volumeSlider">Volume (<span id="volumeValue">10</span>%)</label>
+                            <input type="range" id="volumeSlider" min="0" max="100" value="10" class="w-full" aria-label="Volume">
+                        </div>
+                        <div>
+                            <label for="frequencySlider">Frequency Slider (<span id="sliderValue">440</span> Hz)</label>
+                            <input type="range" id="frequencySlider" name="frequencySlider" min="20" max="5000" value="440" step="1" class="freq-control-element" aria-label="Frequency Slider">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span aria-hidden="true">20 Hz</span>
+                                <span aria-hidden="true">5000 Hz</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label for="sliderStep" class="whitespace-nowrap">Step:</label>
+                            <select id="sliderStep" name="sliderStep" class="text-xs freq-control-element" aria-label="Frequency Slider Step Size">
+                                <option value="0.1">0.1 Hz (Fine)</option>
+                                <option value="1" selected>1 Hz (Medium)</option>
+                                <option value="10">10 Hz (Coarse)</option>
+                                <option value="100">100 Hz (Very Coarse)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Fine-tuning</label>
+                            <div class="flex space-x-2">
+                                <button id="freqDecrementFine" class="btn-secondary btn-small w-full freq-control-element" aria-label="Decrement frequency by 0.1 Hz">-0.1</button>
+                                <button id="freqDecrement" class="btn-secondary btn-small w-full freq-control-element" aria-label="Decrement frequency by 1 Hz">-1</button>
+                                <button id="freqIncrement" class="btn-secondary btn-small w-full freq-control-element" aria-label="Increment frequency by 1 Hz">+1</button>
+                                <button id="freqIncrementFine" class="btn-secondary btn-small w-full freq-control-element" aria-label="Increment frequency by 0.1 Hz">+0.1</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="presetFrequencies">Preset Frequencies / Modes</label>
+                            <select id="presetFrequencies" name="presetFrequencies" class="freq-control-element" aria-label="Select a preset frequency or mode">
+                                <option value="">Select a preset...</option>
+                                </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="control-panel-section">
+                    <h3>Plate Configuration</h3>
+                    <div class="space-y-4">
+                        <div>
+                             <div class="label-group">
+                                <label for="plateShape">Shape</label>
+                                <button id="lockShapeBtn" class="lock-btn" aria-label="Lock Plate Shape"></button>
+                            </div>
+                            <select id="plateShape" name="plateShape" class="freq-control-element" aria-label="Select Plate Shape">
+                                <option value="square" selected>Square</option>
+                                <option value="circular">Circular</option>
+                                <option value="rectangular">Rectangular</option>
+                                <option value="triangular">Triangular (Equilateral)</option>
+                                <option value="hexagonal">Hexagonal</option>
+                                </select>
+                        </div>
+                        <div id="aspectRatioContainer" class="hidden">
+                            <label for="aspectRatio">Aspect Ratio (Width/Height for Rectangular)</label>
+                            <input type="number" id="aspectRatio" name="aspectRatio" value="1.5" min="0.1" max="10" step="0.1" class="freq-control-element" aria-label="Aspect Ratio for Rectangular Plate">
+                        </div>
+                        <div>
+                            <div class="label-group">
+                                <label for="boundaryConditions">Boundary Conditions</label>
+                                <button id="lockBoundaryBtn" class="lock-btn" aria-label="Lock Boundary Conditions"></button>
+                            </div>
+                            <select id="boundaryConditions" name="boundaryConditions" class="freq-control-element" aria-label="Select Boundary Conditions">
+                                <option value="free" selected>Free Edges</option>
+                                <option value="fixed">Fixed (Clamped) Edges</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Note: For Circular plates, 'Free Edges' currently uses a simplified model.</p>
+                        </div>
+                         <div class="pt-3 mt-3 border-t border-gray-200">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Direct Mode Input</h4>
+                            <div class="grid grid-cols-2 gap-3 items-end">
+                                <div>
+                                     <div class="label-group">
+                                        <label for="modeMInput">Mode m</label>
+                                        <button id="lockModeMBtn" class="lock-btn" aria-label="Lock Mode m"></button>
+                                    </div>
+                                    <input type="number" id="modeMInput" value="2" min="0" step="1" class="freq-control-element" aria-label="Mode m value">
+                                </div>
+                                <div>
+                                     <div class="label-group">
+                                        <label for="modeNInput">Mode n</label>
+                                        <button id="lockModeNBtn" class="lock-btn" aria-label="Lock Mode n"></button>
+                                    </div>
+                                    <input type="number" id="modeNInput" value="2" min="0" step="1" class="freq-control-element" aria-label="Mode n value">
+                                </div>
+                                <div class="col-span-2">
+                                    <button id="applyModesBtn" class="btn-secondary w-full freq-control-element">Apply Modes</button>
+                                </div>
+                            </div>
+                        </div>
+                         <details class="group mt-4">
+                            <summary class="cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                                Advanced Material Properties
+                            </summary>
+                            <div class="mt-3 space-y-3 pt-2 border-t border-gray-200">
+                                <p class="text-xs text-gray-500">Adjust normalized virtual material properties. Default values are generally suitable.</p>
+                                <div>
+                                    <label for="relativeDensity">Relative Density</label>
+                                    <input type="number" id="relativeDensity" name="relativeDensity" value="1" min="0.1" max="10" step="0.1" class="freq-control-element" aria-label="Relative Density">
+                                    <p class="text-xs text-gray-500 mt-1">Higher density generally lowers frequencies for a given mode.</p>
+                                </div>
+                                <div>
+                                    <label for="relativeStiffness">Relative Stiffness (Young's Modulus)</label>
+                                    <input type="number" id="relativeStiffness" name="relativeStiffness" value="1" min="0.1" max="10" step="0.1" class="freq-control-element" aria-label="Relative Stiffness">
+                                     <p class="text-xs text-gray-500 mt-1">Higher stiffness generally raises frequencies for a given mode.</p>
+                                </div>
+                                <div>
+                                    <label for="poissonRatio">Poisson's Ratio</label>
+                                    <input type="number" id="poissonRatio" name="poissonRatio" value="0.33" min="0" max="0.5" step="0.01" class="freq-control-element" disabled>
+                                     <p class="text-xs text-gray-500 mt-1">Affects coupling. (Currently disabled for simplicity).</p>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </section>
+
+                 <section class="control-panel-section">
+                    <h3>Visualization</h3>
+                     <div class="space-y-4">
+                        <div>
+                            <label for="lineThickness">Nodal Line Thickness</label>
+                            <input type="range" id="lineThickness" name="lineThickness" min="0.5" max="10" value="1.5" step="0.1" aria-label="Nodal Line Thickness">
+                        </div>
+                         <div>
+                            <label for="nodalLineColor">Nodal Line Color</label>
+                            <input type="color" id="nodalLineColor" name="nodalLineColor" value="#1f2937" class="w-full h-10 p-1 border-gray-300 rounded-md" aria-label="Nodal Line Color">
+                        </div>
+                        <div>
+                            <label for="amplitudeViz">Amplitude Visualization</label>
+                            <select id="amplitudeViz" name="amplitudeViz" aria-label="Amplitude Visualization Type">
+                                <option value="none" selected>Nodal Lines Only</option>
+                                <option value="heatmap">Heatmap</option>
+                                </select>
+                        </div>
+                        <div id="colorMapContainer" class="hidden">
+                            <label for="colorMap">Color Map (for Heatmap)</label>
+                            <select id="colorMap" name="colorMap" aria-label="Heatmap Color Map">
+                                <option value="viridis">Viridis</option>
+                                <option value="plasma">Plasma</option>
+                                <option value="inferno">Inferno</option>
+                                <option value="magma">Magma</option>
+                                <option value="grayscale">Grayscale</option>
+                            </select>
+                        </div>
+                        <div class="pt-3 mt-3 border-t border-gray-200 space-y-3">
+                            <div class="label-group">
+                                <label for="symmetryToggleBtn" class="flex items-center">
+                                    <span class="mr-2">Symmetry Lines</span>
+                                    <div class="tooltip inline-block">
+                                        <span class="text-gray-400 cursor-help">(?)</span>
+                                        <span class="tooltiptext">Show the geometric axes of symmetry for the current plate shape.</span>
+                                    </div>
+                                </label>
+                                <button id="symmetryToggleBtn" class="btn-secondary btn-small btn-toggle" aria-pressed="false">Show</button>
+                            </div>
+                             <div class="label-group">
+                                <label for="antinodeToggleBtn" class="flex items-center">
+                                    <span class="mr-2">Antinode Markers</span>
+                                    <div class="tooltip inline-block">
+                                        <span class="text-gray-400 cursor-help">(?)</span>
+                                        <span class="tooltiptext">Mark points of maximum vibration. Blue (+) for peaks, Red (-) for troughs.</span>
+                                    </div>
+                                </label>
+                                <button id="antinodeToggleBtn" class="btn-secondary btn-small btn-toggle" aria-pressed="false">Show</button>
+                            </div>
+                        </div>
+                        <button id="resetViewBtn" class="btn-secondary w-full">Reset View (Zoom/Pan/Rotate)</button>
+                    </div>
+                </section>
+
+                <section class="control-panel-section">
+                    <h3>Controls</h3>
+                    <div class="space-y-3">
+                         <button id="openGalleryBtn" class="btn-secondary w-full border border-indigo-500 text-indigo-600 hover:bg-indigo-50">Pattern Gallery</button>
+                        <button id="resetAllBtn" class="btn-secondary w-full">Reset All Settings</button>
+                         <div class="tooltip w-full">
+                             <button id="randomPatternBtn" class="btn-secondary w-full">
+                                Discover Mode (Randomize)
+                            </button>
+                            <span class="tooltiptext">Generates a random pattern.</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <section class="control-panel-section">
+                    <h3>Frequency Sweep</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="sweepStartFreq">Start Frequency (Hz)</label>
+                            <input type="number" id="sweepStartFreq" value="100" min="1" max="20000" step="1" class="freq-control-element" aria-label="Sweep Start Frequency">
+                        </div>
+                        <div>
+                            <label for="sweepEndFreq">End Frequency (Hz)</label>
+                            <input type="number" id="sweepEndFreq" value="1000" min="1" max="20000" step="1" class="freq-control-element" aria-label="Sweep End Frequency">
+                        </div>
+                        <div>
+                            <label for="sweepDuration">Duration (seconds)</label>
+                            <input type="number" id="sweepDuration" value="10" min="1" max="300" step="1" class="freq-control-element" aria-label="Sweep Duration">
+                        </div>
+                        <p id="sweepValidation" class="text-xs text-red-500 mt-1 h-4"></p>
+                        <button id="playPauseSweepBtn" class="btn-primary w-full">Play Frequency Sweep</button>
+                    </div>
+                </section>
+
+                 <section class="control-panel-section">
+                    <h3>Output</h3>
+                    <div class="space-y-3">
+                        <button id="saveImageBtn" class="btn-secondary w-full">Save as Image (PNG)</button>
+                        <button id="saveConfigBtn" class="btn-secondary w-full">Save Configuration (JSON)</button>
+                        <label for="loadConfigInput" class="btn-secondary w-full text-center cursor-pointer">Load Configuration (JSON)
+                            <input type="file" id="loadConfigInput" accept=".json" class="hidden">
+                        </label>
+                    </div>
+                </section>
+            </aside>
+
+            <div class="lg:col-span-2 flex flex-col items-center justify-center bg-white p-2 rounded-lg shadow">
+                <div id="visualizationContainer" class="w-full aspect-square max-w-full max-h-[calc(100vh-250px)] relative" role="application" aria-label="Chladni Pattern Visualization">
+                    <div id="visualizationArea">
+                        <span class="text-gray-500 text-lg">Select parameters to visualize Chladni pattern.</span>
+                    </div>
+                    <div id="boundaryConditionOverlay" class="absolute top-0 left-0 w-full h-full pointer-events-none">
+                        </div>
+                </div>
+                 <div id="activeFrequencyDisplay" class="mt-2 text-sm text-gray-700 transition-all duration-300" aria-live="polite">
+                    Current Frequency: <span id="currentFreqDisplay" class="font-semibold">440.0 Hz</span> |
+                    Mode: (<span id="currentModeM" class="font-semibold">m</span>,<span id="currentModeN" class="font-semibold">n</span>) |
+                    Plate: <span id="currentPlateDisplay" class="font-semibold">Square</span> |
+                    Boundary: <span id="currentBoundaryDisplay" class="font-semibold">Free</span>
+                </div>
+            </div>
+
+        </main>
+
+        <section class="my-8">
+            <details class="info-section group" open>
+                <summary class="text-xl font-semibold text-indigo-600 cursor-pointer hover:text-indigo-800">
+                    About Chladni Patterns & Cymatics
+                </summary>
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    <div class="space-y-4 text-gray-700">
+                        <div>
+                            <h4 class="font-semibold text-lg text-gray-800">The Science of Visible Sound</h4>
+                            <p><strong>Chladni patterns</strong>, named after physicist Ernst Chladni, are visual representations of vibration modes on a surface. When a plate is vibrated at a specific <b class="font-semibold">resonant frequency</b>, it forms a <b class="font-semibold">standing wave</b>.</p>
+                            <p>Fine particles (like sand) on the surface are vibrated away from areas of large movement (<b class="font-semibold">antinodes</b>) and settle on areas with no movement. These areas of stillness form the intricate nodal lines you see in the patterns.</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-lg text-gray-800">Key Factors</h4>
+                             <ul class="list-disc list-inside space-y-1">
+                                <li><b>Frequency:</b> Determines the pattern's complexity. Higher frequencies create more intricate patterns.</li>
+                                <li><b>Shape:</b> The geometry of the plate dictates the possible resonant patterns.</li>
+                                <li><b>Boundary:</b> How the edges are held (fixed or free) dramatically changes the outcome.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="font-semibold text-center text-gray-600">Standing Wave Animation</h4>
+                             <svg class="w-full rounded-lg border border-gray-200 bg-gray-50" viewBox="0 0 100 40" aria-labelledby="standingWaveTitle standingWaveDesc">
+                                <title id="standingWaveTitle">Standing Wave Animation</title>
+                                <desc id="standingWaveDesc">An animation showing a wave oscillating between two fixed points. The points that do not move are labeled 'Node' and the points of maximum movement are labeled 'Antinode'.</desc>
+                                <style>
+                                    .wave {
+                                        animation: wave-anim 2s ease-in-out infinite;
+                                    }
+                                    @keyframes wave-anim {
+                                        0% { d: path("M 5,20 C 20,5 30,5 45,20 S 70,35 95,20"); }
+                                        50% { d: path("M 5,20 C 20,35 30,35 45,20 S 70,5 95,20"); }
+                                        100% { d: path("M 5,20 C 20,5 30,5 45,20 S 70,35 95,20"); }
+                                    }
+                                </style>
+                                <!-- Envelope -->
+                                <path d="M 5,20 C 20,5 30,5 45,20 S 70,35 95,20" stroke="#a5b4fc" stroke-width="0.5" fill="none" stroke-dasharray="2,2"/>
+                                <path d="M 5,20 C 20,35 30,35 45,20 S 70,5 95,20" stroke="#a5b4fc" stroke-width="0.5" fill="none" stroke-dasharray="2,2"/>
+                                <!-- Animated Wave -->
+                                <path class="wave" d="M 5,20 C 20,5 30,5 45,20 S 70,35 95,20" stroke="#4f46e5" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                                <!-- Nodes -->
+                                <circle cx="5" cy="20" r="1.5" fill="#4f46e5" />
+                                <circle cx="45" cy="20" r="1.5" fill="#4f46e5" />
+                                <circle cx="95" cy="20" r="1.5" fill="#4f46e5" />
+                                <text x="5" y="27" font-size="4" text-anchor="middle" fill="#374151">Node</text>
+                                <text x="45" y="27" font-size="4" text-anchor="middle" fill="#374151">Node</text>
+                                <!-- Antinode label -->
+                                <path d="M 25,19.5 V 12.5 L 23,14.5 M 25,12.5 L 27,14.5" stroke="#6b7280" stroke-width="0.5" fill="none"/>
+                                <text x="25" y="10" font-size="4" text-anchor="middle" fill="#374151">Antinode</text>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-center text-gray-600">Real-World Example</h4>
+                            <img src="chladni-pattern-1.jpg" alt="A real Chladni pattern created using sand on a vibrating plate." class="rounded-lg border border-gray-200 w-full object-cover">
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <footer class="text-center py-4 border-t border-gray-200">
+            <p class="text-sm text-gray-600">&copy; 2025 Chladni Visualizer Pro. For educational and creative purposes.</p>
+        </footer>
+    </div>
+
+    <script>
+        // --- Global Variables & Configuration ---
+        let audioContext; let oscillator; let gainNode;
+        let isSoundPlaying = false; let currentFrequency = 440;
+        let currentModeM = 2; let currentModeN = 2;
+
+        let scene, camera, renderer, plateMesh, material, chladniTexture, textureCanvas, textureCtx, controls;
+        let symmetryLinesGroup, antinodeMarkersGroup;
+        let showSymmetryLines = false, showAntinodeMarkers = false;
+        const PLATE_SIZE = 2; const TEXTURE_RESOLUTION = 512; const PI = Math.PI; const SQRT3 = Math.sqrt(3);
+
+        let isSweeping = false; let sweepRequestId = null; let sweepStartTime = 0;
+        let sweepInitialFreq = 0; let sweepTargetFreq = 0; let sweepDurationMs = 0;
+        let userSweepStartFreq = 100; let userSweepEndFreq = 1000; let userSweepDurationSec = 10;
+        
+        let drawTimeout = null;
+        const DEBOUNCE_DELAY = 50; // ms
+
+        let lockedParameters = { shape: false, boundary: false, m: false, n: false };
+
+        const lockIconSVG = {
+            unlocked: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>`,
+            locked: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>`
+        };
+        
+        // --- DOM Elements ---
+        const manualFrequencyInput = document.getElementById('manualFrequency');
+        const frequencySlider = document.getElementById('frequencySlider');
+        const sliderValueDisplay = document.getElementById('sliderValue');
+        const sliderStepSelect = document.getElementById('sliderStep');
+        const presetFrequenciesSelect = document.getElementById('presetFrequencies');
+        const playSoundBtn = document.getElementById('playSoundBtn');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValueDisplay = document.getElementById('volumeValue');
+        const plateShapeSelect = document.getElementById('plateShape');
+        const aspectRatioContainer = document.getElementById('aspectRatioContainer');
+        const aspectRatioInput = document.getElementById('aspectRatio');
+        const boundaryConditionsSelect = document.getElementById('boundaryConditions');
+        const modeMInput = document.getElementById('modeMInput');
+        const modeNInput = document.getElementById('modeNInput');
+        const applyModesBtn = document.getElementById('applyModesBtn');
+        const relativeDensityInput = document.getElementById('relativeDensity');
+        const relativeStiffnessInput = document.getElementById('relativeStiffness');
+        const poissonRatioInput = document.getElementById('poissonRatio');
+        const resetAllBtn = document.getElementById('resetAllBtn');
+        const visualizationArea = document.getElementById('visualizationArea');
+        const lineThicknessInput = document.getElementById('lineThickness');
+        const nodalLineColorInput = document.getElementById('nodalLineColor');
+        const amplitudeVizSelect = document.getElementById('amplitudeViz');
+        const colorMapContainer = document.getElementById('colorMapContainer');
+        const colorMapSelect = document.getElementById('colorMap');
+        const resetViewBtn = document.getElementById('resetViewBtn');
+        const playPauseSweepBtn = document.getElementById('playPauseSweepBtn');
+        const randomPatternBtn = document.getElementById('randomPatternBtn');
+        const saveImageBtn = document.getElementById('saveImageBtn');
+        const saveConfigBtn = document.getElementById('saveConfigBtn');
+        const loadConfigInput = document.getElementById('loadConfigInput');
+        const freqValidation = document.getElementById('frequencyValidation');
+        const sweepValidation = document.getElementById('sweepValidation');
+        const sweepStartFreqInput = document.getElementById('sweepStartFreq');
+        const sweepEndFreqInput = document.getElementById('sweepEndFreq');
+        const sweepDurationInput = document.getElementById('sweepDuration');
+        const activeFrequencyDisplay = document.getElementById('activeFrequencyDisplay');
+        const currentFreqDisplay = document.getElementById('currentFreqDisplay');
+        const currentPlateDisplay = document.getElementById('currentPlateDisplay');
+        const currentBoundaryDisplay = document.getElementById('currentBoundaryDisplay');
+        const currentModeMDisplay = document.getElementById('currentModeM');
+        const currentModeNDisplay = document.getElementById('currentModeN');
+        const allFreqControls = document.querySelectorAll('.freq-control-element');
+        const welcomeModal = document.getElementById('welcomeModal');
+        const closeWelcomeBtn = document.getElementById('closeWelcomeBtn');
+        const galleryModal = document.getElementById('galleryModal');
+        const closeGalleryBtn = document.getElementById('closeGalleryBtn');
+        const openGalleryBtn = document.getElementById('openGalleryBtn');
+        const galleryGrid = document.getElementById('galleryGrid');
+        const lockShapeBtn = document.getElementById('lockShapeBtn');
+        const lockBoundaryBtn = document.getElementById('lockBoundaryBtn');
+        const lockModeMBtn = document.getElementById('lockModeMBtn');
+        const lockModeNBtn = document.getElementById('lockModeNBtn');
+        const symmetryToggleBtn = document.getElementById('symmetryToggleBtn');
+        const antinodeToggleBtn = document.getElementById('antinodeToggleBtn');
+        
+        // --- Gallery Data ---
+        const galleryPatterns = [
+            { name: 'Simple Cross', shape: 'square', m: 2, n: 2, freq: 250, boundary: 'free', viz: 'none', cmap: 'viridis' },
+            { name: 'Complex Square', shape: 'square', m: 5, n: 3, freq: 850, boundary: 'free', viz: 'heatmap', cmap: 'plasma' },
+            { name: 'Square Grid', shape: 'square', m: 4, n: 4, freq: 820, boundary: 'fixed', viz: 'none', cmap: 'viridis' },
+            { name: 'Circular Star', shape: 'circular', m: 3, n: 2, freq: 480, boundary: 'fixed', viz: 'heatmap', cmap: 'inferno' },
+            { name: 'Concentric Circles', shape: 'circular', m: 0, n: 3, freq: 350, boundary: 'fixed', viz: 'none', cmap: 'viridis' },
+            { name: 'Circular Flower', shape: 'circular', m: 5, n: 1, freq: 380, boundary: 'fixed', viz: 'heatmap', cmap: 'viridis' },
+            { name: 'Basic Triangle', shape: 'triangular', m: 2, n: 1, freq: 350, boundary: 'free', viz: 'heatmap', cmap: 'magma' },
+            { name: 'Hexagonal Star', shape: 'hexagonal', m: 2, n: 2, freq: 450, boundary: 'free', viz: 'heatmap', cmap: 'plasma' },
+            { name: 'Hexagon Pattern', shape: 'hexagonal', m: 3, n: 0, freq: 680, boundary: 'free', viz: 'none', cmap: 'viridis' },
+            { name: 'Rectangle Bars', shape: 'rectangular', m: 4, n: 1, freq: 500, boundary: 'fixed', viz: 'none', cmap: 'viridis' }
+        ];
+
+        // --- Bessel Function and Roots ---
+        function besselJ(m, x) {
+            if (x === 0 && m === 0) return 1.0; if (x === 0 && m !== 0) return 0.0;
+            let sum = 0; const terms = 20;
+            for (let k = 0; k < terms; k++) {
+                sum += Math.pow(-1, k) * Math.pow(x / 2, m + 2 * k) / (factorial(k) * factorial(m + k));
+            } return sum;
+        }
+        function factorial(n) { if (n <= 1) return 1; let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; }
+        const besselRoots_J_mn = {
+            0: [2.4048, 5.5201, 8.6537, 11.7915, 14.9309], 1: [3.8317, 7.0156, 10.1735, 13.3237, 16.4706],
+            2: [5.1356, 8.4172, 11.6198, 14.7960, 17.9598], 3: [6.3802, 9.7610, 13.0152, 16.2235, 19.4094],
+            4: [7.5883, 11.0647, 14.3725, 17.6160, 20.8269], 5: [8.7715, 12.3386, 15.7002, 18.9801, 22.2178]
+        };
+
+        const presets = {
+            square: [ { name: "Mode (1,2)", m:1, n:2, value: 150 }, { name: "Mode (2,1)", m:2, n:1, value: 150 }, { name: "Mode (2,2)", m:2, n:2, value: 250 }, { name: "Mode (1,3)", m:1, n:3, value: 380 }, { name: "Mode (3,1)", m:3, n:1, value: 380 }, { name: "Mode (2,3)", m:2, n:3, value: 450 }, { name: "Mode (3,2)", m:3, n:2, value: 450 }, { name: "Mode (3,3)", m:3, n:3, value: 520 }, { name: "Mode (1,4)", m:1, n:4, value: 600 }, { name: "Mode (4,1)", m:4, n:1, value: 600 }, { name: "Mode (2,4)", m:2, n:4, value: 680 }, { name: "Mode (4,2)", m:4, n:2, value: 680 }, { name: "Mode (3,4)", m:3, n:4, value: 750 }, { name: "Mode (4,3)", m:4, n:3, value: 750 }, { name: "Mode (4,4)", m:4, n:4, value: 820 }, ],
+            circular: [ { name: "Mode (0,1) - Pure Circles", m:0, n:1, value: 100 }, { name: "Mode (0,2) - Pure Circles", m:0, n:2, value: 230 }, { name: "Mode (0,3) - Pure Circles", m:0, n:3, value: 350 }, { name: "Mode (1,1) - One Diameter", m:1, n:1, value: 160 }, { name: "Mode (1,2) - One Diameter + Circle", m:1, n:2, value: 290 }, { name: "Mode (1,3) - One Diameter + Circles", m:1, n:3, value: 420 }, { name: "Mode (2,1) - Two Diameters", m:2, n:1, value: 210 }, { name: "Mode (2,2) - Two Diameters + Circle", m:2, n:2, value: 350 }, { name: "Mode (3,1) - Three Diameters", m:3, n:1, value: 270 }, { name: "Mode (4,1) - Four Diameters", m:4, n:1, value: 320 }, ],
+            rectangular: [ { name: "Mode (1,1)", m:1, n:1, value: 100 }, { name: "Mode (1,2)", m:1, n:2, value: 180 }, { name: "Mode (2,1)", m:2, n:1, value: 220 }, ],
+            triangular: [{ name: "Mode (1,0)", m:1, n:0, value: 180 }, { name: "Mode (2,1)", m:2, n:1, value: 350 }, { name: "Mode (3,2)", m:3, n:2, value: 550 }, { name: "Mode (4,0)", m:4, n:0, value: 720 }],
+            hexagonal: [{ name: "Fundamental", m:1, n:1, value: 220 }, { name: "Star", m:2, n:2, value: 450 }, { name: "Hexagon within Hexagon", m:3, n:0, value: 680 }]
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupAudio(); setupEventListeners(); initThreeJS(); resetAllSettings(); populateGallery();
+            if (!localStorage.getItem('chladni-visualizer-visited')) {
+                welcomeModal.classList.remove('hidden');
+            }
+            console.log("Initialization complete");
+        });
+
+        function setupAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                gainNode = audioContext.createGain();
+                const initialVolume = parseFloat(volumeSlider.value) / 100;
+                gainNode.gain.value = initialVolume;
+                gainNode.connect(audioContext.destination);
+            } catch (e) { console.error("Web Audio API is not supported.", e); playSoundBtn.disabled = true; }
+        }
+        function setupEventListeners() {
+            manualFrequencyInput.addEventListener('input', () => {
+                const value = parseFloat(manualFrequencyInput.value);
+                sliderValueDisplay.textContent = isNaN(value) ? '---' : value.toFixed(1);
+            });
+            manualFrequencyInput.addEventListener('change', validateAndApplyFrequency);
+
+            frequencySlider.addEventListener('input', () => handleFrequencyInput(frequencySlider.value, false, true));
+
+            sliderStepSelect.addEventListener('change', updateSliderStep);
+            ['freqDecrementFine','freqDecrement','freqIncrement','freqIncrementFine'].forEach(id => { document.getElementById(id).addEventListener('click', handleFineTuneFrequency); });
+            presetFrequenciesSelect.addEventListener('change', handlePresetFrequencyChange);
+            playSoundBtn.addEventListener('click', toggleSound);
+            volumeSlider.addEventListener('input', handleVolumeChange);
+            plateShapeSelect.addEventListener('change', () => { updatePlateShape(); updateVisualizationParameters(); });
+            aspectRatioInput.addEventListener('change', () => { if (plateShapeSelect.value === 'rectangular') { updatePlateGeometry(); debouncedDraw(); } updateVisualizationParameters(); });
+            boundaryConditionsSelect.addEventListener('change', () => { debouncedDraw(); updateVisualizationParameters(); });
+            applyModesBtn.addEventListener('click', handleApplyModes);
+            relativeDensityInput.addEventListener('input', () => handleMaterialPropertyChange(true));
+            relativeStiffnessInput.addEventListener('input', () => handleMaterialPropertyChange(true));
+            lineThicknessInput.addEventListener('input', debouncedDraw); 
+            nodalLineColorInput.addEventListener('input', debouncedDraw);
+            amplitudeVizSelect.addEventListener('change', handleAmplitudeVizChange); 
+            colorMapSelect.addEventListener('change', debouncedDraw);
+            resetAllBtn.addEventListener('click', resetAllSettings); 
+            resetViewBtn.addEventListener('click', resetCameraView);
+            playPauseSweepBtn.addEventListener('click', toggleFrequencySweep);
+            randomPatternBtn.addEventListener('click', randomizeParameters);
+            saveImageBtn.addEventListener('click', saveCanvasAsImage); 
+            saveConfigBtn.addEventListener('click', saveConfiguration);
+            loadConfigInput.addEventListener('change', loadConfiguration);
+            closeWelcomeBtn.addEventListener('click', () => {
+                 welcomeModal.classList.add('hidden');
+                 localStorage.setItem('chladni-visualizer-visited', 'true');
+            });
+            openGalleryBtn.addEventListener('click', () => galleryModal.classList.remove('hidden'));
+            closeGalleryBtn.addEventListener('click', () => galleryModal.classList.add('hidden'));
+            
+            lockShapeBtn.addEventListener('click', () => toggleLock('shape'));
+            lockBoundaryBtn.addEventListener('click', () => toggleLock('boundary'));
+            lockModeMBtn.addEventListener('click', () => toggleLock('m'));
+            lockModeNBtn.addEventListener('click', () => toggleLock('n'));
+            
+            symmetryToggleBtn.addEventListener('click', toggleSymmetryLines);
+            antinodeToggleBtn.addEventListener('click', toggleAntinodeMarkers);
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+        
+        function calculateFrequencyMultiplier() {
+            const stiffness = parseFloat(relativeStiffnessInput.value);
+            const density = parseFloat(relativeDensityInput.value);
+            if (isNaN(stiffness) || isNaN(density) || density <= 0) return 1.0;
+            return Math.sqrt(stiffness / density);
+        }
+
+        function handleMaterialPropertyChange(isDebounced = false) {
+            if (isDebounced) {
+                clearTimeout(drawTimeout);
+                drawTimeout = setTimeout(() => handleFrequencyInput(currentFrequency), DEBOUNCE_DELAY);
+            } else {
+                handleFrequencyInput(currentFrequency);
+            }
+        }
+
+        function updateModesFromFrequency(baseFrequency) {
+            if (lockedParameters.m && lockedParameters.n) return;
+
+            const shape = plateShapeSelect.value;
+            let m, n;
+            if (shape === 'square' || shape === 'rectangular') {
+                m = Math.max(1, (Math.floor(baseFrequency / 60) % 7) + 1);
+                n = Math.max(1, (Math.floor(baseFrequency / 85) % 7) + 1);
+                if (m === n && baseFrequency > 200 && m < 7) { if ((Math.floor(baseFrequency / 10)) % 2 === 0) n = Math.min(7, n + 1); else m = Math.min(7, m + 1); }
+                if (baseFrequency < 80) { m = 1; n = 1; } else if (baseFrequency < 130) { m = 1; n = 2; } else if (baseFrequency < 180) { m = 2; n = 1; }
+            } else if (shape === 'circular') {
+                m = Math.max(0, (Math.floor(baseFrequency / 90)) % 6);
+                n = Math.max(1, (Math.floor(baseFrequency / 70)) % 4 + 1);
+                if (baseFrequency < 120) { m = 0; n = 1; } else if (baseFrequency < 200) { m = 1; n = 1; } else if (baseFrequency < 280) { m = 2; n = 1; } else if (baseFrequency < 350) { m = 0; n = 2; }
+            } else {
+                m = Math.max(1, (Math.floor(baseFrequency / 150) % 5) + 1);
+                n = Math.max(0, (Math.floor(baseFrequency / 200) % 5));
+            }
+
+            if (!lockedParameters.m) {
+                currentModeM = m;
+                modeMInput.value = currentModeM;
+            }
+            if (!lockedParameters.n) {
+                currentModeN = n;
+                modeNInput.value = currentModeN;
+            }
+        }
+
+        function handleFrequencyInput(newFrequency, fromSweep = false, isDebounced = false) {
+            const updateLogic = () => {
+                const minFreq = parseFloat(manualFrequencyInput.min); const maxFreq = parseFloat(manualFrequencyInput.max);
+                let validatedFrequency = parseFloat(newFrequency); if (isNaN(validatedFrequency)) validatedFrequency = currentFrequency;
+                validatedFrequency = Math.max(minFreq, Math.min(maxFreq, validatedFrequency));
+                currentFrequency = validatedFrequency;
+                const multiplier = calculateFrequencyMultiplier();
+                const baseFrequency = currentFrequency / multiplier;
+                updateModesFromFrequency(baseFrequency);
+                manualFrequencyInput.value = validatedFrequency.toFixed(1);
+                sliderValueDisplay.textContent = validatedFrequency.toFixed(1);
+                if (!fromSweep) frequencySlider.value = validatedFrequency;
+                if (isSoundPlaying && oscillator) { if (fromSweep) oscillator.frequency.linearRampToValueAtTime(currentFrequency, audioContext.currentTime + 0.05); else oscillator.frequency.setValueAtTime(currentFrequency, audioContext.currentTime); }
+                if (!fromSweep) freqValidation.textContent = "";
+                drawChladniPattern();
+                updateVisualizationParameters();
+            };
+            if (isDebounced) {
+                clearTimeout(drawTimeout);
+                drawTimeout = setTimeout(updateLogic, DEBOUNCE_DELAY);
+            } else {
+                updateLogic();
+            }
+        }
+
+        function validateAndApplyFrequency() { handleFrequencyInput(manualFrequencyInput.value); }
+        function updateSliderStep() { frequencySlider.step = sliderStepSelect.value; }
+        
+        function handleFineTuneFrequency(event) {
+            const increment = parseFloat(event.target.textContent); 
+            let currentValue = parseFloat(manualFrequencyInput.value); 
+            if (isNaN(currentValue)) currentValue = currentFrequency; 
+            handleFrequencyInput(currentValue + increment);
+        }
+
+        function handlePresetFrequencyChange() {
+            resetLocks();
+            const selectedIndex = presetFrequenciesSelect.selectedIndex; if (selectedIndex === 0 || !presetFrequenciesSelect.value) return;
+            const selectedOption = presetFrequenciesSelect.options[selectedIndex]; 
+            const baseFreqValue = parseFloat(selectedOption.value);
+            const shape = plateShapeSelect.value; const shapePresets = presets[shape] || [];
+            const selectedPresetData = shapePresets.find(p => selectedOption.text.startsWith(p.name));
+            if (selectedPresetData && selectedPresetData.m !== undefined && selectedPresetData.n !== undefined) { 
+                currentModeM = selectedPresetData.m; currentModeN = selectedPresetData.n; 
+                modeMInput.value = currentModeM; modeNInput.value = currentModeN;
+            }
+            const multiplier = calculateFrequencyMultiplier();
+            const displayFreq = baseFreqValue * multiplier;
+            handleFrequencyInput(displayFreq);
+        }
+
+        function handleApplyModes() {
+            const m = parseInt(modeMInput.value, 10);
+            const n = parseInt(modeNInput.value, 10);
+            if (isNaN(m) || isNaN(n) || m < 0 || n < 0) { return; }
+            currentModeM = m;
+            currentModeN = n;
+            debouncedDraw();
+            updateVisualizationParameters();
+        }
+
+        function toggleSound() {
+            if (!audioContext) { return; } 
+            if (isSoundPlaying) { 
+                if (oscillator) { oscillator.stop(); oscillator.disconnect(); } 
+                isSoundPlaying = false; 
+                playSoundBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /></svg>`; 
+                playSoundBtn.classList.remove('bg-red-500', 'hover:bg-red-600', 'text-white'); 
+                playSoundBtn.classList.add('btn-secondary'); 
+            } else { 
+                oscillator = audioContext.createOscillator(); 
+                oscillator.type = 'sine'; 
+                oscillator.frequency.setValueAtTime(currentFrequency, audioContext.currentTime); 
+                oscillator.connect(gainNode); 
+                oscillator.start(); 
+                isSoundPlaying = true; 
+                playSoundBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75L19.5 12m0 0L17.25 14.25M19.5 12H4.5M7.5 4.5l-4.5 4.5v3l4.5 4.5m12-3V4.5" /></svg>`; 
+                playSoundBtn.classList.remove('btn-secondary'); 
+                playSoundBtn.classList.add('bg-red-500', 'text-white', 'hover:bg-red-600'); 
+            }
+        }
+
+        function handleVolumeChange() {
+            const volume = parseFloat(volumeSlider.value);
+            volumeValueDisplay.textContent = volume.toFixed(0);
+            if (gainNode) {
+                const gainValue = volume / 100;
+                gainNode.gain.linearRampToValueAtTime(gainValue, audioContext.currentTime + 0.05);
+            }
+        }
+
+        function updatePlateShape() {
+            const selectedShape = plateShapeSelect.value; 
+            aspectRatioContainer.classList.toggle('hidden', selectedShape !== 'rectangular');
+            presetFrequenciesSelect.innerHTML = '<option value="">Select a preset / mode...</option>'; 
+            const shapePresets = presets[selectedShape] || [];
+            shapePresets.forEach(preset => { const option = document.createElement('option'); option.value = preset.value; option.textContent = `${preset.name}${preset.m !== undefined && preset.n !== undefined ? ` (${preset.m},${preset.n})` : ''} ~${preset.value} Hz`; presetFrequenciesSelect.appendChild(option); });
+            handleFrequencyInput(currentFrequency);
+            updatePlateGeometry();
+            updateSymmetryLines();
+        }
+
+        function updatePlateGeometry() {
+            if (!scene) return;
+            const shape = plateShapeSelect.value;
+            let newGeometry;
+            const ar = (shape === 'rectangular') ? (parseFloat(aspectRatioInput.value) || 1.0) : 1.0;
+            const plateWidth = PLATE_SIZE;
+            const plateHeight = (shape === 'rectangular') ? PLATE_SIZE / ar : PLATE_SIZE;
+            if (plateMesh) { scene.remove(plateMesh); if (plateMesh.geometry) plateMesh.geometry.dispose(); }
+            switch (shape) {
+                case 'square': newGeometry = new THREE.PlaneGeometry(PLATE_SIZE, PLATE_SIZE); break;
+                case 'circular': newGeometry = new THREE.CircleGeometry(PLATE_SIZE / 2, 64); break;
+                case 'rectangular': newGeometry = new THREE.PlaneGeometry(plateWidth, plateHeight); break;
+                case 'triangular': { const R = PLATE_SIZE / 2; const trianglePoints = [ new THREE.Vector2(0, R), new THREE.Vector2(-R * SQRT3 / 2, -R / 2), new THREE.Vector2(R * SQRT3 / 2, -R / 2) ]; const triShape = new THREE.Shape(trianglePoints); newGeometry = new THREE.ShapeGeometry(triShape); break; }
+                case 'hexagonal': { const hexR = PLATE_SIZE / 2; const hexPoints = []; for (let i = 0; i < 6; i++) { const angle = (PI / 3) * i + PI / 6; hexPoints.push(new THREE.Vector2(hexR * Math.cos(angle), hexR * Math.sin(angle))); } const hexShape = new THREE.Shape(hexPoints); newGeometry = new THREE.ShapeGeometry(hexShape); break; }
+                default: newGeometry = new THREE.PlaneGeometry(PLATE_SIZE, PLATE_SIZE);
+            }
+            plateMesh = new THREE.Mesh(newGeometry, material);
+            scene.add(plateMesh);
+        }
+
+        function initThreeJS() {
+            const container = visualizationArea; 
+            visualizationArea.innerHTML = ''; 
+            scene = new THREE.Scene(); 
+            scene.background = new THREE.Color(0xf3f4f6); 
+            const aspect = container.clientWidth / container.clientHeight; 
+            camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000); 
+            camera.position.set(0,0,PLATE_SIZE*2.2); 
+            camera.lookAt(scene.position); 
+            renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, preserveDrawingBuffer:true }); 
+            renderer.setSize(container.clientWidth, container.clientHeight); 
+            container.appendChild(renderer.domElement); 
+            controls = new THREE.OrbitControls(camera, renderer.domElement); 
+            controls.enableDamping = true; 
+            controls.dampingFactor = 0.05; 
+            controls.screenSpacePanning = false; 
+            controls.minDistance = PLATE_SIZE/2; 
+            controls.maxDistance = PLATE_SIZE*5; 
+            controls.target.set(0,0,0); 
+            textureCanvas = document.createElement('canvas'); 
+            textureCanvas.width = TEXTURE_RESOLUTION; 
+            textureCanvas.height = TEXTURE_RESOLUTION; 
+            textureCtx = textureCanvas.getContext('2d'); 
+            chladniTexture = new THREE.CanvasTexture(textureCanvas); 
+            material = new THREE.MeshBasicMaterial({ map:chladniTexture, side:THREE.DoubleSide, transparent:true }); 
+            updatePlateGeometry(); 
+            const ambientLight = new THREE.AmbientLight(0xffffff,1.0); 
+            scene.add(ambientLight); 
+            
+            symmetryLinesGroup = new THREE.Group();
+            antinodeMarkersGroup = new THREE.Group();
+            scene.add(symmetryLinesGroup);
+            scene.add(antinodeMarkersGroup);
+
+            animate();
+        }
+
+        function animate() { requestAnimationFrame(animate); if (controls && controls.enabled) controls.update(); renderer.render(scene,camera); }
+        function onWindowResize() { const container = visualizationArea; if(!camera || !renderer || !container.clientWidth || !container.clientHeight) return; camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); debouncedDraw(); }
+        function resetCameraView() { if(!camera || !controls) return; camera.position.set(0,0,PLATE_SIZE*2.2); controls.target.set(0,0,0); controls.reset(); controls.update(); console.log("Camera view and controls reset."); }
+        
+        function chladniFunctionSquare(xNorm, yNorm, m, n, boundary) { const adjX = xNorm + 0.5; const adjY = yNorm + 0.5; if (boundary === 'fixed') return Math.sin(m*PI*adjX)*Math.sin(n*PI*adjY); else { if(m===0||n===0)return 1; return Math.cos(m*PI*adjX)*Math.cos(n*PI*adjY)+Math.cos(n*PI*adjX)*Math.cos(m*PI*adjY); } }
+        function chladniFunctionCircular(rNorm, theta, m, n_root_val, boundary) { if (rNorm > 1) return 0; const term_r = besselJ(m, n_root_val * rNorm); const term_theta = (m === 0) ? 1.0 : Math.cos(m * theta); return term_r * term_theta; }
+        function chladniFunctionTriHex(x, y, m, n) { const kx = m * PI; const ky = n * PI; const term1 = Math.cos(kx * x); const term2 = Math.cos(0.5 * (-kx * x + SQRT3 * ky * y)); const term3 = Math.cos(0.5 * (-kx * x - SQRT3 * ky * y)); return term1 + term2 + term3; }
+
+        function isInsideTriangle(x, y) { const p = { x, y }; const A = { x: 0, y: 1.0 }; const B = { x: -SQRT3 / 2, y: -0.5 }; const C = { x: SQRT3 / 2, y: -0.5 }; const detT = (B.y - C.y) * (A.x - C.x) + (C.x - B.x) * (A.y - C.y); const w1 = ((B.y - C.y) * (p.x - C.x) + (C.x - B.x) * (p.y - C.y)) / detT; const w2 = ((C.y - A.y) * (p.x - C.x) + (A.x - C.x) * (p.y - C.y)) / detT; const w3 = 1 - w1 - w2; return w1 >= -0.01 && w2 >= -0.01 && w3 >= -0.01; }
+        function isInsideHexagon(x, y) { const R = 1.0; const ax = Math.abs(x); const ay = Math.abs(y); return ay <= SQRT3 / 2 * R && ax <= R; }
+
+        const debouncedDraw = () => {
+            clearTimeout(drawTimeout);
+            drawTimeout = setTimeout(drawChladniPattern, DEBOUNCE_DELAY);
+        };
+        
+        function drawChladniPattern() {
+            if(!textureCtx || !chladniTexture){ return; }
+            const shape = plateShapeSelect.value; const boundary = boundaryConditionsSelect.value; const vizType = amplitudeVizSelect.value; const selectedColorMap = colorMapSelect.value; const nodalLineColor = nodalLineColorInput.value; const nodeLineWidth = parseFloat(lineThicknessInput.value);
+            textureCtx.clearRect(0,0,TEXTURE_RESOLUTION,TEXTURE_RESOLUTION);
+            const amplitudeData = new Array(TEXTURE_RESOLUTION); let minActualAmplitude = Infinity; let maxActualAmplitude = -Infinity; let calculationPerformed = false;
+            
+            if (shape === 'square' || shape === 'rectangular') {
+                calculationPerformed = true;
+                for (let j=0; j<TEXTURE_RESOLUTION; j++) { amplitudeData[j] = new Array(TEXTURE_RESOLUTION); for (let i=0; i<TEXTURE_RESOLUTION; i++) { const xNorm = i/TEXTURE_RESOLUTION-0.5; const yNorm = j/TEXTURE_RESOLUTION-0.5; const amplitude = chladniFunctionSquare(xNorm,yNorm,currentModeM,currentModeN,boundary); amplitudeData[j][i] = amplitude; minActualAmplitude = Math.min(minActualAmplitude,amplitude); maxActualAmplitude = Math.max(maxActualAmplitude,amplitude); } }
+            } else if (shape === 'circular') {
+                calculationPerformed = true;
+                const m_idx = Math.max(0, Math.min(currentModeM, Object.keys(besselRoots_J_mn).length -1)); const n_idx = Math.max(1, Math.min(currentModeN, besselRoots_J_mn[0].length)) -1; 
+                let n_root_value = (besselRoots_J_mn[m_idx] && besselRoots_J_mn[m_idx][n_idx] !== undefined) ? besselRoots_J_mn[m_idx][n_idx] : besselRoots_J_mn[0][0];
+                for (let j=0; j<TEXTURE_RESOLUTION; j++) { amplitudeData[j] = new Array(TEXTURE_RESOLUTION); for (let i=0; i<TEXTURE_RESOLUTION; i++) { const xNorm = (i-TEXTURE_RESOLUTION/2)/(TEXTURE_RESOLUTION/2); const yNorm = (j-TEXTURE_RESOLUTION/2)/(TEXTURE_RESOLUTION/2); const rNorm = Math.sqrt(xNorm*xNorm + yNorm*yNorm); let amplitude = 0; if (rNorm <= 1.0) { const theta = Math.atan2(yNorm, xNorm); amplitude = chladniFunctionCircular(rNorm, theta, currentModeM, n_root_value, boundary); } amplitudeData[j][i] = amplitude; minActualAmplitude = Math.min(minActualAmplitude,amplitude); maxActualAmplitude = Math.max(maxActualAmplitude,amplitude); } }
+            } else if (shape === 'triangular' || shape === 'hexagonal') {
+                calculationPerformed = true;
+                for (let j = 0; j < TEXTURE_RESOLUTION; j++) { amplitudeData[j] = new Array(TEXTURE_RESOLUTION); for (let i = 0; i < TEXTURE_RESOLUTION; i++) { const xNorm = (i/(TEXTURE_RESOLUTION-1))*2-1; const yNorm = -((j/(TEXTURE_RESOLUTION-1))*2-1); let amplitude = 0; let isInside = (shape === 'triangular') ? isInsideTriangle(xNorm, yNorm) : isInsideHexagon(xNorm, yNorm); if (isInside) { amplitude = chladniFunctionTriHex(xNorm, yNorm, currentModeM, currentModeN); } amplitudeData[j][i] = amplitude; if(isInside) { minActualAmplitude = Math.min(minActualAmplitude, amplitude); maxActualAmplitude = Math.max(maxActualAmplitude, amplitude); } } }
+            }
+            if (!calculationPerformed) return;
+            
+            const nodalRefMagnitude = Math.max(1e-9, Math.abs(maxActualAmplitude), Math.abs(minActualAmplitude)); const nodalThreshold = 0.035 * nodalRefMagnitude;
+            for (let j=0; j<TEXTURE_RESOLUTION; j++) { for (let i=0; i<TEXTURE_RESOLUTION; i++) { const amplitude = amplitudeData[j][i]; if (vizType === 'heatmap') { const intensity = Math.pow(Math.abs(amplitude)/nodalRefMagnitude, 0.75); let r,g,b; switch(selectedColorMap) { case 'plasma': r=Math.floor(Math.sin(intensity*PI*0.8+PI*0.1)*200+55); g=Math.floor(Math.sin(intensity*PI*0.7+PI*0.8)*180+35); b=Math.floor(Math.cos(intensity*PI*0.9+PI*0.5)*200+55); break; case 'grayscale': r=g=b=Math.floor(intensity*255); break; case 'inferno': r=Math.floor(Math.pow(intensity,0.8)*255); g=Math.floor(Math.pow(intensity,1.5)*200); b=Math.floor(Math.pow(intensity,3.0)*150); break; case 'magma': r=Math.floor(Math.pow(intensity,0.7)*255); g=Math.floor(Math.pow(intensity,1.2)*180); b=Math.floor(Math.pow(intensity,2.5)*200); break; case 'viridis': default: r=Math.floor(Math.sin(intensity*PI*0.5)*100+intensity*100); g=Math.floor(Math.sin(intensity*PI*0.5+PI/2)*255); b=Math.floor(Math.cos(intensity*PI*0.5)*200+(1-intensity)*50); break; } textureCtx.fillStyle = `rgb(${Math.max(0,Math.min(255,r))},${Math.max(0,Math.min(255,g))},${Math.max(0,Math.min(255,b))})`; textureCtx.fillRect(i,j,1,1); } if (Math.abs(amplitude) < nodalThreshold) { textureCtx.fillStyle = (vizType==='heatmap'&&nodalLineColor==='#1f2937')?'rgba(0,0,0,0.5)':nodalLineColor; textureCtx.fillRect(i,j,Math.max(1,Math.floor(nodeLineWidth)),Math.max(1,Math.floor(nodeLineWidth))); } } }
+            chladniTexture.needsUpdate = true;
+            updateAntinodeMarkers(amplitudeData, minActualAmplitude, maxActualAmplitude);
+        }
+
+        function handleAmplitudeVizChange() { colorMapContainer.classList.toggle('hidden', amplitudeVizSelect.value !== 'heatmap'); debouncedDraw(); updateVisualizationParameters(); }
+        
+        function updateUIForState(state) { // 'idle', 'sweeping'
+            const isIdle = state === 'idle';
+            allFreqControls.forEach(control => { control.disabled = !isIdle; });
+            playSoundBtn.disabled = !isIdle;
+            if (controls) controls.enabled = isIdle;
+
+            playPauseSweepBtn.textContent = (state === 'sweeping') ? "Stop Sweep" : "Play Frequency Sweep";
+            playPauseSweepBtn.classList.toggle('btn-danger', state === 'sweeping');
+            playPauseSweepBtn.classList.toggle('btn-primary', state !== 'sweeping');
+
+            activeFrequencyDisplay.classList.toggle('bg-indigo-100', !isIdle);
+            activeFrequencyDisplay.classList.toggle('p-1', !isIdle);
+            activeFrequencyDisplay.classList.toggle('rounded-md', !isIdle);
+            
+            if (isIdle) {
+                sweepValidation.textContent = "";
+            }
+        }
+        
+        function toggleFrequencySweep() {
+            if (isSweeping) { stopAllActivity(); } else { startFrequencySweep(); }
+        }
+        
+        function startFrequencySweep() {
+            userSweepStartFreq = parseFloat(sweepStartFreqInput.value); userSweepEndFreq = parseFloat(sweepEndFreqInput.value); userSweepDurationSec = parseFloat(sweepDurationInput.value);
+            sweepValidation.textContent = "";
+            if (isNaN(userSweepStartFreq)||isNaN(userSweepEndFreq)||isNaN(userSweepDurationSec)||userSweepStartFreq<=0||userSweepEndFreq<=0||userSweepDurationSec<=0) { sweepValidation.textContent = "Invalid sweep parameters."; return; }
+            if (userSweepStartFreq>parseFloat(manualFrequencyInput.max)||userSweepEndFreq>parseFloat(manualFrequencyInput.max)||userSweepStartFreq<parseFloat(manualFrequencyInput.min)||userSweepEndFreq<parseFloat(manualFrequencyInput.min) ) { sweepValidation.textContent = `Frequencies out of range.`; return; }
+            
+            if (!isSoundPlaying) { toggleSound(); }
+
+            isSweeping = true; sweepInitialFreq = userSweepStartFreq; sweepTargetFreq = userSweepEndFreq; sweepDurationMs = userSweepDurationSec * 1000;
+            sweepStartTime = performance.now();
+            updateUIForState('sweeping');
+            handleFrequencyInput(sweepInitialFreq, true);
+            if (sweepRequestId) cancelAnimationFrame(sweepRequestId);
+            sweepRequestId = requestAnimationFrame(animateSweepFrame);
+        }
+
+        function stopAllActivity(setFreqToEnd = false) {
+            if (!isSweeping) return;
+            isSweeping = false;
+            if (sweepRequestId) { cancelAnimationFrame(sweepRequestId); sweepRequestId = null; }
+            updateUIForState('idle');
+            if (setFreqToEnd) { handleFrequencyInput(sweepTargetFreq, false); }
+        }
+
+        function animateSweepFrame(timestamp) {
+            if (!isSweeping) return; 
+            const elapsedTime = timestamp - sweepStartTime; let progress = elapsedTime / sweepDurationMs; progress = Math.min(progress, 1); 
+            const currentSweepFreq = sweepInitialFreq + (sweepTargetFreq - sweepInitialFreq) * progress;
+            handleFrequencyInput(currentSweepFreq, true); 
+            if (progress < 1) { sweepRequestId = requestAnimationFrame(animateSweepFrame); } else { stopAllActivity(true); } 
+        }
+
+        function resetAllSettings() {
+            stopAllActivity();
+            resetLocks();
+            manualFrequencyInput.value = "250";
+            volumeSlider.value = "10"; handleVolumeChange();
+            frequencySlider.min = "20"; frequencySlider.max = "2000";
+            frequencySlider.value = "250"; sliderValueDisplay.textContent = "250";
+            sliderStepSelect.value = "1"; updateSliderStep(); currentFrequency = 250;
+            plateShapeSelect.value = "square"; aspectRatioInput.value = "1.5";
+            boundaryConditionsSelect.value = "free";
+            relativeDensityInput.value = "1";
+            relativeStiffnessInput.value = "1";
+            poissonRatioInput.value = "0.33";
+            lineThicknessInput.value = "1.5"; nodalLineColorInput.value = "#1f2937";
+            amplitudeVizSelect.value = "none"; colorMapSelect.value = "viridis";
+            sweepStartFreqInput.value = "100"; userSweepStartFreq = 100;
+            sweepEndFreqInput.value = "1000"; userSweepEndFreq = 1000;
+            sweepDurationInput.value = "10"; userSweepDurationSec = 10;
+            showSymmetryLines = false; showAntinodeMarkers = false;
+            updateOverlayButtons();
+            updateSymmetryLines();
+            updateAntinodeMarkers([]);
+            if (isSoundPlaying) toggleSound();
+            updatePlateShape(); handleAmplitudeVizChange(); resetCameraView();
+            updateVisualizationParameters(); freqValidation.textContent = "";
+            updateUIForState('idle');
+        }
+        
+        function populateGallery() {
+            galleryGrid.innerHTML = '';
+            galleryPatterns.forEach(pattern => {
+                const item = document.createElement('div');
+                item.className = 'gallery-item rounded-lg overflow-hidden shadow cursor-pointer bg-white';
+                item.setAttribute('role', 'button');
+                item.setAttribute('aria-label', `Load pattern: ${pattern.name}`);
+                item.addEventListener('click', () => applyGalleryPattern(pattern));
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 150;
+                canvas.height = 150;
+                drawThumbnail(canvas, pattern);
+
+                const name = document.createElement('p');
+                name.className = 'text-center text-sm p-2 font-medium text-gray-700';
+                name.textContent = pattern.name;
+
+                item.appendChild(canvas);
+                item.appendChild(name);
+                galleryGrid.appendChild(item);
+            });
+        }
+        
+        function drawThumbnail(canvas, pattern) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#f9fafb';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 2;
+            
+            // Simplified drawing based on shape and modes
+            const { shape, m, n } = pattern;
+            const w = canvas.width;
+            const h = canvas.height;
+            const c = w / 2;
+
+            ctx.beginPath();
+            if (shape === 'square' || shape === 'rectangular') {
+                for(let i = 1; i < m; i++) { ctx.moveTo(i * w/m, 0); ctx.lineTo(i * w/m, h); }
+                for(let i = 1; i < n; i++) { ctx.moveTo(0, i * h/n); ctx.lineTo(w, i * h/n); }
+            } else if (shape === 'circular') {
+                for(let i = 1; i <= n; i++) { ctx.moveTo(c + (c*0.9/n*i), c); ctx.arc(c, c, c*0.9/n*i, 0, 2*PI); }
+                if (m > 0) { for(let i = 0; i < m; i++) { const a = PI/m * i; ctx.moveTo(c-Math.cos(a)*c*0.9, c-Math.sin(a)*c*0.9); ctx.lineTo(c+Math.cos(a)*c*0.9, c+Math.sin(a)*c*0.9); } }
+            } else if (shape === 'triangular') {
+                ctx.moveTo(c, h * 0.1); ctx.lineTo(w * 0.1, h * 0.85); ctx.lineTo(w * 0.9, h * 0.85); ctx.closePath();
+            } else if (shape === 'hexagonal') {
+                for(let i = 0; i < 6; i++) { const a = PI/3 * i + PI/6; ctx[i===0?'moveTo':'lineTo'](c + c*0.9*Math.cos(a), c + c*0.9*Math.sin(a)); }
+                ctx.closePath();
+            }
+            ctx.stroke();
+        }
+        
+        function applyGalleryPattern(pattern) {
+            stopAllActivity();
+            resetLocks();
+            showSymmetryLines = false;
+            showAntinodeMarkers = false;
+            updateOverlayButtons();
+            
+            plateShapeSelect.value = pattern.shape;
+            boundaryConditionsSelect.value = pattern.boundary;
+            modeMInput.value = pattern.m;
+            modeNInput.value = pattern.n;
+            amplitudeVizSelect.value = pattern.viz;
+            colorMapSelect.value = pattern.cmap;
+            
+            handleApplyModes(); 
+            handleAmplitudeVizChange();
+            updatePlateShape(); 
+            
+            handleFrequencyInput(pattern.freq * calculateFrequencyMultiplier());
+
+            galleryModal.classList.add('hidden');
+        }
+        
+        function toggleLock(param) {
+            lockedParameters[param] = !lockedParameters[param];
+            updateLockIcons();
+        }
+
+        function updateLockIcons() {
+            lockShapeBtn.innerHTML = lockedParameters.shape ? lockIconSVG.locked : lockIconSVG.unlocked;
+            lockBoundaryBtn.innerHTML = lockedParameters.boundary ? lockIconSVG.locked : lockIconSVG.unlocked;
+            lockModeMBtn.innerHTML = lockedParameters.m ? lockIconSVG.locked : lockIconSVG.unlocked;
+            lockModeNBtn.innerHTML = lockedParameters.n ? lockIconSVG.locked : lockIconSVG.unlocked;
+
+            lockShapeBtn.classList.toggle('locked', lockedParameters.shape);
+            lockBoundaryBtn.classList.toggle('locked', lockedParameters.boundary);
+            lockModeMBtn.classList.toggle('locked', lockedParameters.m);
+            lockModeNBtn.classList.toggle('locked', lockedParameters.n);
+        }
+
+        function resetLocks() {
+            lockedParameters = { shape: false, boundary: false, m: false, n: false };
+            updateLockIcons();
+        }
+
+        function randomizeParameters() { 
+            stopAllActivity(); 
+            if (!lockedParameters.shape) {
+                const shapes = Array.from(plateShapeSelect.options).map(opt => opt.value);
+                plateShapeSelect.value = shapes[Math.floor(Math.random() * shapes.length)];
+            }
+            if (!lockedParameters.boundary) {
+                const boundaries = Array.from(boundaryConditionsSelect.options).map(opt => opt.value);
+                boundaryConditionsSelect.value = boundaries[Math.floor(Math.random() * boundaries.length)];
+            }
+            
+            updatePlateShape();
+
+            const randomFreq = Math.floor(Math.random() * (1500 - 50 + 1)) + 50;
+            
+            if (!lockedParameters.m || !lockedParameters.n) {
+                const m = lockedParameters.m ? parseInt(modeMInput.value) : Math.floor(Math.random() * 4) + 1;
+                const n = lockedParameters.n ? parseInt(modeNInput.value) : Math.floor(Math.random() * 4) + 1;
+                modeMInput.value = m;
+                modeNInput.value = n;
+                handleApplyModes();
+            }
+            
+            relativeDensityInput.value = (Math.random() * (2.0 - 0.5) + 0.5).toFixed(2);
+            relativeStiffnessInput.value = (Math.random() * (2.0 - 0.5) + 0.5).toFixed(2);
+
+            handleFrequencyInput(randomFreq);
+            updateVisualizationParameters(); 
+        }
+
+        function saveCanvasAsImage() { if (!renderer) return; try { renderer.render(scene, camera); const dataURL = renderer.domElement.toDataURL('image/png'); const link = document.createElement('a'); link.download = `ChladniPattern_${plateShapeSelect.value}_${currentModeM}-${currentModeN}_${currentFrequency.toFixed(0)}Hz.png`; link.href = dataURL; link.click(); } catch (e) { console.error("Error saving image:", e); alert("Could not save image."); } }
+        function saveConfiguration() {
+            const config = {
+                frequency: currentFrequency, modeM: currentModeM, modeN: currentModeN,
+                volume: parseFloat(volumeSlider.value),
+                plateShape: plateShapeSelect.value, aspectRatio: parseFloat(aspectRatioInput.value),
+                boundaryConditions: boundaryConditionsSelect.value,
+                relativeDensity: parseFloat(relativeDensityInput.value),
+                relativeStiffness: parseFloat(relativeStiffnessInput.value),
+                poissonRatio: parseFloat(poissonRatioInput.value),
+                lineThickness: parseFloat(lineThicknessInput.value), nodalLineColor: nodalLineColorInput.value,
+                amplitudeViz: amplitudeVizSelect.value, colorMap: colorMapSelect.value,
+                userSweepStartFreq: parseFloat(sweepStartFreqInput.value),
+                userSweepEndFreq: parseFloat(sweepEndFreqInput.value),
+                userSweepDurationSec: parseFloat(sweepDurationInput.value),
+                cameraPosition: camera.position.toArray(), cameraRotation: camera.rotation.toArray(),
+                cameraZoom: camera.zoom, controlsTarget: controls.target.toArray(),
+                showSymmetryLines, showAntinodeMarkers
+            };
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a'); link.download = `ChladniConfig_${Date.now()}.json`;
+            link.href = URL.createObjectURL(blob); link.click(); URL.revokeObjectURL(link.href);
+        }
+        function loadConfiguration(event) { 
+            stopAllActivity(); 
+            resetLocks();
+            const file = event.target.files[0]; if (!file) return; 
+            const reader = new FileReader(); 
+            reader.onload = (e) => { try { applyConfiguration(JSON.parse(e.target.result)); alert("Configuration loaded!"); } catch (error) { console.error("Error loading config:", error); alert("Failed to load config.");} finally { loadConfigInput.value = ""; } }; 
+            reader.readAsText(file); 
+        }
+        function applyConfiguration(config) {
+            currentFrequency = config.frequency || 440;
+            currentModeM = config.modeM || 2;
+            currentModeN = config.modeN || 2;
+            volumeSlider.value = config.volume || 10; handleVolumeChange();
+            plateShapeSelect.value = config.plateShape || "square";
+            if (config.plateShape === 'rectangular' && config.aspectRatio) aspectRatioInput.value = config.aspectRatio.toFixed(1);
+            boundaryConditionsSelect.value = config.boundaryConditions || "free";
+            relativeDensityInput.value = config.relativeDensity || 1;
+            relativeStiffnessInput.value = config.relativeStiffness || 1;
+            poissonRatioInput.value = config.poissonRatio || 0.33;
+            lineThicknessInput.value = config.lineThickness || 1.5;
+            nodalLineColorInput.value = config.nodalLineColor || "#1f2937";
+            amplitudeVizSelect.value = config.amplitudeViz || 'none';
+            colorMapSelect.value = config.colorMap || 'viridis';
+            sweepStartFreqInput.value = config.userSweepStartFreq || 100;
+            sweepEndFreqInput.value = config.userSweepEndFreq || 1000;
+            sweepDurationInput.value = config.userSweepDurationSec || 10;
+            showSymmetryLines = config.showSymmetryLines || false;
+            showAntinodeMarkers = config.showAntinodeMarkers || false;
+            updateOverlayButtons();
+
+            updatePlateShape(); 
+            handleAmplitudeVizChange();
+            handleFrequencyInput(currentFrequency);
+            
+            if (config.cameraPosition) camera.position.fromArray(config.cameraPosition);
+            if (config.controlsTarget) controls.target.fromArray(config.controlsTarget);
+            if (config.cameraZoom) camera.zoom = config.cameraZoom;
+            camera.updateProjectionMatrix(); controls.update();
+            updateVisualizationParameters();
+        }
+        function updateVisualizationParameters() { currentFreqDisplay.textContent = `${currentFrequency.toFixed(1)} Hz`; currentModeMDisplay.textContent = currentModeM.toString(); currentModeNDisplay.textContent = currentModeN.toString(); currentPlateDisplay.textContent = plateShapeSelect.options[plateShapeSelect.selectedIndex].text.split('(')[0].trim(); currentBoundaryDisplay.textContent = boundaryConditionsSelect.options[boundaryConditionsSelect.selectedIndex].text; }
+   
+        function toggleSymmetryLines() {
+            showSymmetryLines = !showSymmetryLines;
+            updateOverlayButtons();
+            updateSymmetryLines();
+        }
+        function toggleAntinodeMarkers() {
+            showAntinodeMarkers = !showAntinodeMarkers;
+            updateOverlayButtons();
+            debouncedDraw();
+        }
+
+        function updateOverlayButtons() {
+            symmetryToggleBtn.textContent = showSymmetryLines ? 'Hide' : 'Show';
+            symmetryToggleBtn.classList.toggle('active', showSymmetryLines);
+            antinodeToggleBtn.textContent = showAntinodeMarkers ? 'Hide' : 'Show';
+            antinodeToggleBtn.classList.toggle('active', showAntinodeMarkers);
+        }
+
+        function updateSymmetryLines() {
+            while(symmetryLinesGroup.children.length > 0){ symmetryLinesGroup.remove(symmetryLinesGroup.children[0]); }
+            if (!showSymmetryLines) return;
+            const material = new THREE.LineBasicMaterial({ color: 0xcc0000, linewidth: 1 });
+            const s = PLATE_SIZE / 2;
+            const shape = plateShapeSelect.value;
+            let points = [];
+
+            if (shape === 'square' || shape === 'rectangular') {
+                const ar = (shape === 'rectangular') ? (1 / (parseFloat(aspectRatioInput.value) || 1.0)) : 1.0;
+                points.push(new THREE.Vector3(-s, 0, 0.01), new THREE.Vector3(s, 0, 0.01));
+                points.push(new THREE.Vector3(0, -s * ar, 0.01), new THREE.Vector3(0, s * ar, 0.01));
+            } else if (shape === 'circular') {
+                for(let i = 0; i < 4; i++) {
+                    const angle = i * PI / 4;
+                    points.push(new THREE.Vector3(0,0,0.01), new THREE.Vector3(s * Math.cos(angle), s * Math.sin(angle), 0.01));
+                }
+            } else if (shape === 'triangular') {
+                const R = s;
+                const v1 = new THREE.Vector3(0, R, 0.01);
+                const v2 = new THREE.Vector3(-R * SQRT3 / 2, -R / 2, 0.01);
+                const v3 = new THREE.Vector3(R * SQRT3 / 2, -R / 2, 0.01);
+                points.push(v1, v2.clone().add(v3).multiplyScalar(0.5));
+                points.push(v2, v1.clone().add(v3).multiplyScalar(0.5));
+                points.push(v3, v1.clone().add(v2).multiplyScalar(0.5));
+            } else if (shape === 'hexagonal') {
+                for(let i = 0; i < 3; i++) {
+                    const angle = i * PI / 3;
+                    points.push(new THREE.Vector3(s * Math.cos(angle), s * Math.sin(angle), 0.01), new THREE.Vector3(-s * Math.cos(angle), -s * Math.sin(angle), 0.01));
+                }
+            }
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            symmetryLinesGroup.add(new THREE.LineSegments(geometry, material));
+        }
+
+        function createMarkerTexture(text, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 32, 34);
+            return new THREE.CanvasTexture(canvas);
+        }
+        const positiveMarkerMaterial = new THREE.SpriteMaterial({ map: createMarkerTexture('+', '#2563eb'), sizeAttenuation: false });
+        const negativeMarkerMaterial = new THREE.SpriteMaterial({ map: createMarkerTexture('-', '#dc2626'), sizeAttenuation: false });
+        
+        function updateAntinodeMarkers(amplitudeData, minAmp, maxAmp) {
+            while (antinodeMarkersGroup.children.length > 0) {
+                antinodeMarkersGroup.remove(antinodeMarkersGroup.children[0]);
+            }
+            if (!showAntinodeMarkers || !amplitudeData.length || !isFinite(minAmp) || !isFinite(maxAmp)) return;
+
+            const threshold = 0.95; 
+            const step = 5; 
+
+            for (let j = 1; j < TEXTURE_RESOLUTION - 1; j += step) {
+                for (let i = 1; i < TEXTURE_RESOLUTION - 1; i += step) {
+                    const amp = amplitudeData[j][i];
+                    let isLocalMax = true;
+                    let isLocalMin = true;
+
+                    // Check for local maximum (peak)
+                    if (amp > maxAmp * threshold) {
+                        isLocalMin = false;
+                        for (let y = -1; y <= 1; y++) {
+                            for (let x = -1; x <= 1; x++) {
+                                if (x === 0 && y === 0) continue;
+                                if (amplitudeData[j + y][i + x] > amp) {
+                                    isLocalMax = false; break;
+                                }
+                            }
+                            if (!isLocalMax) break;
+                        }
+                        if (isLocalMax) {
+                            const marker = new THREE.Sprite(positiveMarkerMaterial);
+                            marker.position.set( (i/TEXTURE_RESOLUTION - 0.5) * PLATE_SIZE, -(j/TEXTURE_RESOLUTION - 0.5) * PLATE_SIZE, 0.02);
+                            marker.scale.set(0.12, 0.12, 1.0); // Increased marker size for better visibility
+                            antinodeMarkersGroup.add(marker);
+                        }
+                    // Check for local minimum (trough)
+                    } else if (amp < minAmp * threshold) {
+                        isLocalMax = false;
+                        for (let y = -1; y <= 1; y++) {
+                            for (let x = -1; x <= 1; x++) {
+                                if (x === 0 && y === 0) continue;
+                                if (amplitudeData[j + y][i + x] < amp) {
+                                    isLocalMin = false; break;
+                                }
+                            }
+                            if (!isLocalMin) break;
+                        }
+                        if (isLocalMin) {
+                            const marker = new THREE.Sprite(negativeMarkerMaterial);
+                            marker.position.set( (i/TEXTURE_RESOLUTION - 0.5) * PLATE_SIZE, -(j/TEXTURE_RESOLUTION - 0.5) * PLATE_SIZE, 0.02);
+                            marker.scale.set(0.12, 0.12, 1.0); // Increased marker size for better visibility
+                            antinodeMarkersGroup.add(marker);
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
